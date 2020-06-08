@@ -4,6 +4,7 @@ The core gameplay is navigating down and gathering useful materials to upgrade y
 
 Going further down should be accompanied by greater difficulty / risk and greater reward.
 
+Game is playable at https://jonochadwell.github.io/MineGame/
 
 ## Short term goals
 
