@@ -1,8 +1,8 @@
 // World primitives.
-const BLOCK_SIZE = 8;
-const TILE_SIZE = 16;
-const TILE_GRAPHIC_SIZE = 16;
-const PLAYER_GRAPHIC_SIZE = 40;
+const BLOCK_SIZE = 8; // tiles in a block
+const TILE_SIZE = 16; // size of a tile in world coordinates
+const TILE_GRAPHIC_SIZE = 16; // size of the tile graphic in pixels
+const PLAYER_GRAPHIC_SIZE = 40; // size of the player graphic in pixels
 const MAP_SEED = 0;
 
 // Game balance numbers.
@@ -18,7 +18,6 @@ const CAMERA_Y_OFFSET = -100;
 
 const BLOCK_UNLOAD_DISTANCE = VIEW_WIDTH;
 const BLOCK_LOAD_WINDOW = 4;
-
 
 var pod;
 var cursors;
@@ -67,6 +66,27 @@ Tiles["properties"] = {
 
 
 ///////////////////////////////////////////////////////////////////////////////
+// Assertions
+///////////////////////////////////////////////////////////////////////////////
+
+function assert(value) {
+    if (!value) {
+        throw 'bad assertion: ' + value
+    }
+}
+
+function assertObjectEquals(a, b) {
+    if (!a.equals(b)) {
+        throw 'bad assertion: "' + a + '" equals "' + b + '"'
+    }
+}
+
+function testAssert() {
+    assert(true)
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
 // Math
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -77,6 +97,14 @@ function remainder(a, b) {
     } else {
         return maybenegative;
     }
+}
+
+function testRemainder() {
+    assert(remainder(1, 3) == 1)
+    assert(remainder(5, 3) == 2)
+    assert(remainder(9, 3) == 0)
+    assert(remainder(-1, 3) == 2)
+    assert(remainder(-9, 3) == 0)
 }
 
 
@@ -121,13 +149,15 @@ function world2tile(x, y) {
     return vec2(Math.floor(y / TILE_SIZE), Math.floor(x / TILE_SIZE));
 }
 
+// Returns the world coordinates of the center of a tile
 function tile2world(row, col) {
     if (arguments.length == 1) {
-        return tile2block(row.row(), row.col());
+        return tile2world(row.row(), row.col());
     }
     return vec2((Math.floor(col) + 0.5) * TILE_SIZE, (Math.floor(row) + 0.5) * TILE_SIZE);
 }
 
+// Get the block coordinates of the block containing a tile
 function tile2block(row, col) {
     if (arguments.length == 1) {
         return tile2block(row.row(), row.col());
@@ -137,17 +167,35 @@ function tile2block(row, col) {
 
 function block2world(row, col) {
     if (arguments.length == 1) {
-        return tile2block(row.row(), row.col());
+        return block2world(row.row(), row.col());
     }
     return vec2((Math.floor(col) + 0.5) * TILE_SIZE * BLOCK_SIZE, (Math.floor(row) + 0.5)  * TILE_SIZE * BLOCK_SIZE);
 }
 
 function tile2subtile(row, col) {
     if (arguments.length == 1) {
-        return tile2block(row.row(), row.col());
+        return tile2subtile(row.row(), row.col());
     }
     return vec2(remainder(Math.floor(row), BLOCK_SIZE), remainder(Math.floor(col), BLOCK_SIZE));
 }
+
+function testConversions() {
+    assertObjectEquals(world2block(1.5,1), vec2(0,0))
+    assertObjectEquals(world2block(-1,1), vec2(0,-1))
+    assertObjectEquals(world2block(vec2(0, TILE_SIZE * BLOCK_SIZE * 100 + TILE_SIZE / 2)), vec2(100,0))
+
+    assertObjectEquals(world2tile(vec2(0, TILE_SIZE * BLOCK_SIZE * 100 + TILE_SIZE / 2)), vec2(BLOCK_SIZE * 100,0))
+
+    assertObjectEquals(tile2world(vec2(0,0)), vec2(TILE_SIZE/2, TILE_SIZE/2))
+    assertObjectEquals(tile2world(vec2(5,0)), vec2(TILE_SIZE/2, TILE_SIZE * 5.5))
+
+    assertObjectEquals(tile2block(vec2(BLOCK_SIZE*13.2,BLOCK_SIZE * 7.9)), vec2(13, 7))
+
+    assertObjectEquals(block2world(vec2(5,7)), vec2(7.5*BLOCK_SIZE*TILE_SIZE, 5.5*BLOCK_SIZE*TILE_SIZE))
+
+    assertObjectEquals(tile2subtile(vec2(BLOCK_SIZE*13+3,BLOCK_SIZE*19+5)), vec2(3,5))
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // World Generation
@@ -220,10 +268,11 @@ class Block {
     }
 
     centerLocation() {
-        return block2world(this.col, this.row);
+        return block2world(this.row, this.col);
     }
 
     load(scene) {
+        console.log("Loading block " + this.row + ", " + this.col)
         if (this.phaserGroup == null) {
             if (this.phaserCollider != null) {
                 console.error("Group but no collider!?");
@@ -250,6 +299,7 @@ class Block {
     }
 
     unload() {
+        console.log("Unoading block " + this.row + ", " + this.col)
         if (this.phaserGroup != null) {
             this.phaserGroup.destroy(true);
             this.phaserGroup = null;
@@ -277,6 +327,7 @@ class BackgroundScene extends Phaser.Scene {
         super('BackgroundScene');
     }
 
+    // Phaser preload
     preload () {
         this.load.image('background', 'terrain/background.png');
     }
@@ -306,6 +357,15 @@ class GameScene extends Phaser.Scene {
         this.loadedBlocks = [];
     }
 
+    // Phaser preload
+    preload() {
+        this.load.image('player', 'player/me.png');
+
+        for (const tile of Tiles.nonNull) {
+            this.load.image(Tiles.properties[tile].name, Tiles.properties[tile].image);
+        }
+    }
+
     getBlock(pos) {
         if (this.blocks[pos] == null) {
             this.blocks[pos] = new Block(pos.x, pos.y);
@@ -325,14 +385,6 @@ class GameScene extends Phaser.Scene {
         block.tiles[subtile.row()][subtile.col()] = Tiles.EMPTY;
         block.unload();
         block.load(this);
-    }
-
-    preload() {
-        this.load.image('player', 'player/me.png');
-
-        for (const tile of Tiles.nonNull) {
-            this.load.image(Tiles.properties[tile].name, Tiles.properties[tile].image);
-        }
     }
 
     manageLoaded() {
@@ -378,7 +430,7 @@ class GameScene extends Phaser.Scene {
 
     update() {
         const podTile = world2tile(pod.x, pod.y);
-        console.log("x is " + pod.x + " target is " + pod.targetX);
+        // console.log("x is " + pod.x + " target is " + pod.targetX);
         if (cursors.left.isDown) {
             pod.targetX = tile2world(podTile.row(), podTile.col() - 1).x;
         
@@ -419,6 +471,22 @@ class GameScene extends Phaser.Scene {
         this.manageLoaded();
     }
 }
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Simple Unit Testing
+///////////////////////////////////////////////////////////////////////////////
+
+// Yes - running unit tests on every game load is a little extreme. However
+// learning to properly unit test javascript makes me want to gag so deal.
+
+function testAll() {
+    testAssert()
+    testRemainder()
+    testConversions()
+}
+
+testAll()
 
 
 ///////////////////////////////////////////////////////////////////////////////
