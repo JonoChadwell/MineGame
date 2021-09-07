@@ -7,6 +7,7 @@ const MAP_SEED = 0;
 
 // Game balance numbers.
 const PLAYER_SPEED = TILE_SIZE * 10;
+const PLAYER_DOWN_SPEED = TILE_SIZE * 3;
 const JUMP_VELOCITY = 400;
 const GRAVITY = 400;
 
@@ -272,7 +273,7 @@ class Block {
     }
 
     load(scene) {
-        console.log("Loading block " + this.row + ", " + this.col)
+        // console.log("Loading block " + this.row + ", " + this.col)
         if (this.phaserGroup == null) {
             if (this.phaserCollider != null) {
                 console.error("Group but no collider!?");
@@ -299,7 +300,7 @@ class Block {
     }
 
     unload() {
-        console.log("Unoading block " + this.row + ", " + this.col)
+        // console.log("Unoading block " + this.row + ", " + this.col)
         if (this.phaserGroup != null) {
             this.phaserGroup.destroy(true);
             this.phaserGroup = null;
@@ -433,21 +434,18 @@ class GameScene extends Phaser.Scene {
         // console.log("x is " + pod.x + " target is " + pod.targetX);
         if (cursors.left.isDown) {
             pod.targetX = tile2world(podTile.row(), podTile.col() - 1).x;
-        
-            if (pod.body.touching.left) {
-                this.destroyTile(podTile.row() + 1, podTile.col() - 2);
-                this.destroyTile(podTile.row(), podTile.col() - 2);
-                this.destroyTile(podTile.row() - 1, podTile.col() - 2);
-
-            }
         } else if (cursors.right.isDown) {
             pod.targetX = tile2world(podTile.row(), podTile.col() + 1).x;
-        
-            if (pod.body.touching.right) {
-                this.destroyTile(podTile.row() + 1, podTile.col() + 2);
-                this.destroyTile(podTile.row(), podTile.col() + 2);
-                this.destroyTile(podTile.row() - 1, podTile.col() + 2);
-            }
+        }
+        if (pod.body.touching.left) {
+            this.destroyTile(podTile.row() + 1, podTile.col() - 2);
+            this.destroyTile(podTile.row(), podTile.col() - 2);
+            this.destroyTile(podTile.row() - 1, podTile.col() - 2);
+        }
+        if (pod.body.touching.right) {
+            this.destroyTile(podTile.row() + 1, podTile.col() + 2);
+            this.destroyTile(podTile.row(), podTile.col() + 2);
+            this.destroyTile(podTile.row() - 1, podTile.col() + 2);
         }
 
         if (pod.x < pod.targetX) {
@@ -455,7 +453,7 @@ class GameScene extends Phaser.Scene {
             pod.setVelocityX(PLAYER_SPEED * scale);
         } else {
             const scale = Math.min(1, ((pod.x - pod.targetX) / (PLAYER_SPEED / 10)));
-            pod.setVelocityX(-PLAYER_SPEED);
+            pod.setVelocityX(-PLAYER_SPEED * scale);
         }
 
         if (cursors.up.isDown && pod.body.touching.down) {
@@ -463,9 +461,11 @@ class GameScene extends Phaser.Scene {
         }
 
         if (cursors.down.isDown && pod.body.touching.down) {
-            this.destroyTile(podTile.row() + 2, podTile.col() + 1);
-            this.destroyTile(podTile.row() + 2, podTile.col());
-            this.destroyTile(podTile.row() + 2, podTile.col() - 1);
+            const targetCol = pod.targetX / TILE_SIZE
+            this.destroyTile(podTile.row() + 2, targetCol + 1);
+            this.destroyTile(podTile.row() + 2, targetCol);
+            this.destroyTile(podTile.row() + 2, targetCol - 1);
+            pod.setVelocityY(PLAYER_DOWN_SPEED);
         }
         
         this.manageLoaded();
